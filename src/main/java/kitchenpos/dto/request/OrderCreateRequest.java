@@ -1,15 +1,22 @@
 package kitchenpos.dto.request;
 
 import java.util.List;
-import java.util.stream.Collectors;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import kitchenpos.domain.Order;
-import kitchenpos.domain.OrderStatus;
 
 public class OrderCreateRequest {
+
+    @NotNull
     private final Long orderTableId;
-    private final List<OrderLineItemCreateRequest> orderLineItems;
+
+    @NotNull
+    @NotEmpty
+    private final List<@Valid OrderLineItemCreateRequest> orderLineItems;
 
     @JsonCreator
     public OrderCreateRequest(Long orderTableId, List<OrderLineItemCreateRequest> orderLineItems) {
@@ -18,7 +25,7 @@ public class OrderCreateRequest {
     }
 
     public Order toEntity() {
-        return Order.of(orderTableId, OrderStatus.COOKING);
+        return Order.of(orderTableId, Order.INITIAL_STATUS);
     }
 
     public Long getOrderTableId() {
@@ -27,11 +34,5 @@ public class OrderCreateRequest {
 
     public List<OrderLineItemCreateRequest> getOrderLineItems() {
         return orderLineItems;
-    }
-
-    public List<Long> getMenuIds() {
-        return orderLineItems.stream()
-            .map(OrderLineItemCreateRequest::getMenuId)
-            .collect(Collectors.toList());
     }
 }

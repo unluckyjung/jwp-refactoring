@@ -29,6 +29,9 @@ public class OrderTable {
     }
 
     public OrderTable(Long id, Long tableGroupId, int numberOfGuests, boolean empty) {
+        if (numberOfGuests < 0) {
+            throw new NegativeNumberOfGuestsException();
+        }
         this.id = id;
         this.tableGroupId = tableGroupId;
         this.numberOfGuests = numberOfGuests;
@@ -39,23 +42,7 @@ public class OrderTable {
         return new OrderTable(null, null, numberOfGuests, empty);
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getTableGroupId() {
-        return tableGroupId;
-    }
-
-    public int getNumberOfGuests() {
-        return numberOfGuests;
-    }
-
-    public boolean isEmpty() {
-        return empty;
-    }
-
-    public void addToTableGroup(Long tableGroupId) {
+    public void groupBy(Long tableGroupId) {
         if (!this.empty) {
             throw new TableGroupWithNotEmptyTableException(this.id);
         }
@@ -89,5 +76,21 @@ public class OrderTable {
         }
 
         this.numberOfGuests = numberOfGuests;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getTableGroupId() {
+        return tableGroupId;
+    }
+
+    public int getNumberOfGuests() {
+        return numberOfGuests;
+    }
+
+    public boolean isEmpty() {
+        return empty;
     }
 }
