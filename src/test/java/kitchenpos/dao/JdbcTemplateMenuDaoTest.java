@@ -13,9 +13,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static kitchenpos.application.fixture.MenuFixture.createMenu;
-import static kitchenpos.application.fixture.MenuFixture.createMenuProduct;
-import static kitchenpos.application.fixture.MenuGroupFixture.createMenuGroup;
+import static kitchenpos.fixture.MenuFixture.createMenu;
+import static kitchenpos.fixture.MenuFixture.createMenuProduct;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroup;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -50,14 +50,14 @@ class JdbcTemplateMenuDaoTest {
         assertAll(
                 () -> assertThat(result).isEqualToIgnoringGivenFields(menu, "id", "menuProducts"),
                 () -> assertThat(result.getId()).isNotNull(),
-                () -> assertThat(result.getMenuProducts()).isNull()
+                () -> assertThat(result.getMenuProducts()).isEmpty()
         );
     }
 
     @Test
     @DisplayName("존재하는 id로 엔티티를 조회하면 저장되어있는 엔티티가 조회된다")
     void findExist() {
-        Menu menu = createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId, null);
+        Menu menu = createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId);
         Menu persisted = menuDao.save(menu);
 
         Menu result = menuDao.findById(persisted.getId()).get();
@@ -74,23 +74,32 @@ class JdbcTemplateMenuDaoTest {
     @Test
     @DisplayName("모든 엔티티를 조회하면 저장되어 있는 엔티티들이 반환된다")
     void findAll() {
-        menuDao.save(createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId, null));
-        menuDao.save(createMenu(null, "양념치킨", BigDecimal.valueOf(2000, 2), menuGroupId, null));
-        menuDao.save(createMenu(null, "무슨치킨", BigDecimal.valueOf(3000, 2), menuGroupId, null));
-        menuDao.save(createMenu(null, "땅땅치킨", BigDecimal.valueOf(4000, 2), menuGroupId, null));
+        List<Menu> menus = Arrays.asList(
+                createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId),
+                createMenu(null, "양념치킨", BigDecimal.valueOf(2000, 2), menuGroupId),
+                createMenu(null, "무슨치킨", BigDecimal.valueOf(3000, 2), menuGroupId),
+                createMenu(null, "땅땅치킨", BigDecimal.valueOf(4000, 2), menuGroupId)
+        );
+        for (Menu menu : menus) {
+            menuDao.save(menu);
+        }
 
-        assertThat(menuDao.findAll()).hasSize(4);
+        List<Menu> result = menuDao.findAll();
+        assertAll(
+                () -> assertThat(result).usingElementComparatorIgnoringFields("id").containsAll(result),
+                () -> assertThat(result).extracting(Menu::getId).doesNotContainNull()
+        );
     }
 
     @Test
     @DisplayName("id의 리스트 중 저장되어있는 데이터가 몇 개인지 확인한다")
     void countByIdIn() {
         List<Menu> shouldFound = Arrays.asList(
-                menuDao.save(createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId, null)),
-                menuDao.save(createMenu(null, "양념치킨", BigDecimal.valueOf(2000, 2), menuGroupId, null))
+                menuDao.save(createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId)),
+                menuDao.save(createMenu(null, "양념치킨", BigDecimal.valueOf(2000, 2), menuGroupId))
         );
-        menuDao.save(createMenu(null, "무슨치킨", BigDecimal.valueOf(3000, 2), menuGroupId, null));
-        menuDao.save(createMenu(null, "땅땅치킨", BigDecimal.valueOf(4000, 2), menuGroupId, null));
+        menuDao.save(createMenu(null, "무슨치킨", BigDecimal.valueOf(3000, 2), menuGroupId));
+        menuDao.save(createMenu(null, "땅땅치킨", BigDecimal.valueOf(4000, 2), menuGroupId));
 
         List<Long> ids = shouldFound.stream().map(Menu::getId).collect(Collectors.toList());
         assertThat(menuDao.countByIdIn(ids)).isEqualTo(2);

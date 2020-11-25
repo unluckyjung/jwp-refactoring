@@ -2,38 +2,34 @@ package kitchenpos.application;
 
 import kitchenpos.dao.MenuGroupDao;
 import kitchenpos.domain.MenuGroup;
+import kitchenpos.ui.dto.MenuGroupCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Arrays;
 import java.util.List;
 
-import static kitchenpos.application.fixture.MenuGroupFixture.createMenuGroup;
-import static kitchenpos.application.fixture.MenuGroupFixture.createMenuGroupRequest;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroup;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroupRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 
-@ExtendWith(MockitoExtension.class)
+@ServiceIntegrationTest
 @DisplayName("메뉴 그룹 서비스")
 class MenuGroupServiceTest {
-    @InjectMocks
+    @Autowired
     private MenuGroupService menuGroupService;
 
-    @Mock
+    @Autowired
     private MenuGroupDao menuGroupDao;
 
     @Nested
     @DisplayName("생성 메서드는")
     class CreateMenuGroup {
-        private MenuGroup request;
+        private MenuGroupCreateRequest request;
 
         private MenuGroup subject() {
             return menuGroupService.create(request);
@@ -45,12 +41,6 @@ class MenuGroupServiceTest {
             @BeforeEach
             void setUp() {
                 request = createMenuGroupRequest("추천메뉴");
-
-                given(menuGroupDao.save(any(MenuGroup.class))).willAnswer(i -> {
-                    MenuGroup saved = i.getArgument(0, MenuGroup.class);
-                    saved.setId(1L);
-                    return saved;
-                });
             }
 
             @Test
@@ -81,11 +71,11 @@ class MenuGroupServiceTest {
             @BeforeEach
             void setUp() {
                 menuGroups = Arrays.asList(
-                        createMenuGroup(1L, "추천 메뉴"),
-                        createMenuGroup(2L, "맛잇는 메뉴")
+                        createMenuGroup(null, "추천 메뉴"),
+                        createMenuGroup(null, "맛잇는 메뉴")
                 );
-
-                given(menuGroupDao.findAll()).willReturn(menuGroups);
+                menuGroupDao.save(menuGroups.get(0));
+                menuGroupDao.save(menuGroups.get(1));
             }
 
             @Test
@@ -93,7 +83,10 @@ class MenuGroupServiceTest {
             void findMenuGroups() {
                 List<MenuGroup> result = subject();
 
-                assertThat(result).usingDefaultComparator().isEqualTo(menuGroups);
+                assertAll(
+                        () -> assertThat(result).usingElementComparatorIgnoringFields("id").containsAll(menuGroups),
+                        () -> assertThat(result).extracting(MenuGroup::getId).doesNotContainNull()
+                );
             }
         }
     }

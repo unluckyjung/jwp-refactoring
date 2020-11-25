@@ -2,40 +2,37 @@ package kitchenpos.application;
 
 import kitchenpos.dao.ProductDao;
 import kitchenpos.domain.Product;
+import kitchenpos.ui.dto.ProductCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static kitchenpos.application.fixture.ProductFixture.createProduct;
-import static kitchenpos.application.fixture.ProductFixture.createProductRequest;
+import static kitchenpos.fixture.ProductFixture.createProduct;
+import static kitchenpos.fixture.ProductFixture.createProductRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
 
-@ExtendWith(MockitoExtension.class)
+@ServiceIntegrationTest
 @DisplayName("상품 서비스")
 class ProductServiceTest {
-    @InjectMocks
+    @Autowired
     private ProductService productService;
 
-    @Mock
+    @Autowired
     private ProductDao productDao;
 
     @Nested
     @DisplayName("생성 메서드는")
     class CreateProduct {
-        private Product request;
+        private ProductCreateRequest request;
 
         private Product subject() {
             return productService.create(request);
@@ -52,16 +49,13 @@ class ProductServiceTest {
             @Test
             @DisplayName("상품을 생성한다")
             void createProduct() {
-                given(productDao.save(any(Product.class))).willAnswer(i -> {
-                    Product saved = i.getArgument(0, Product.class);
-                    saved.setId(7L);
-                    return saved;
-                });
                 Product result = subject();
 
                 assertAll(
                         () -> assertThat(result.getId()).isNotNull(),
-                        () -> assertThat(result).isEqualToIgnoringGivenFields(request, "id")
+                        () -> assertThat(result)
+                                .usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                                .isEqualToIgnoringGivenFields(request, "id")
                 );
             }
         }
@@ -111,12 +105,10 @@ class ProductServiceTest {
 
             @BeforeEach
             void setUp() {
-                products = Arrays.asList(
-                        createProduct(1L, "치킨", BigDecimal.ONE),
-                        createProduct(2L, "마요", BigDecimal.TEN),
-                        createProduct(3L, "돈가", BigDecimal.valueOf(10000))
-                );
-                given(productDao.findAll()).willReturn(products);
+                products = new ArrayList<>();
+                products.add(productDao.save(createProduct(null, "치킨", BigDecimal.ONE)));
+                products.add(productDao.save(createProduct(null, "마요", BigDecimal.TEN)));
+                products.add(productDao.save(createProduct(null, "돈가", BigDecimal.valueOf(10000))));
             }
 
             @Test
@@ -124,7 +116,10 @@ class ProductServiceTest {
             void findAll() {
                 List<Product> result = subject();
 
-                assertThat(result).usingRecursiveComparison().isEqualTo(products);
+                assertThat(result)
+                        .usingFieldByFieldElementComparator()
+                        .usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                        .containsAll(products);
             }
         }
     }

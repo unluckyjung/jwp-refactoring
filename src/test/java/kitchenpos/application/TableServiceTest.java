@@ -2,43 +2,51 @@ package kitchenpos.application;
 
 import kitchenpos.dao.OrderDao;
 import kitchenpos.dao.OrderTableDao;
+import kitchenpos.dao.TableGroupDao;
+import kitchenpos.domain.OrderStatus;
 import kitchenpos.domain.OrderTable;
+import kitchenpos.domain.TableGroup;
+import kitchenpos.ui.dto.OrderTableCreateRequest;
+import kitchenpos.ui.dto.OrderTableNumOfGuestRequest;
+import kitchenpos.ui.dto.OrderTableStatusRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
-import static kitchenpos.application.fixture.OrderTableFixture.*;
+import static kitchenpos.fixture.OrderFixture.createOrder;
+import static kitchenpos.fixture.OrderTableFixture.*;
+import static kitchenpos.fixture.TableGroupFixture.createTableGroup;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.BDDMockito.given;
 
-@ExtendWith(MockitoExtension.class)
+@ServiceIntegrationTest
 @DisplayName("주문 테이블 서비스")
 class TableServiceTest {
-    @InjectMocks
+    @Autowired
     private TableService tableService;
 
-    @Mock
+    @Autowired
     private OrderDao orderDao;
 
-    @Mock
+    @Autowired
     private OrderTableDao orderTableDao;
+
+    @Autowired
+    private TableGroupDao tableGroupDao;
 
     @Nested
     @DisplayName("생성 메서드는")
     class CreateTable {
-        private OrderTable request;
+        private OrderTableCreateRequest request;
 
         private OrderTable subject() {
             return tableService.create(request);
@@ -55,18 +63,12 @@ class TableServiceTest {
             @Test
             @DisplayName("주문 테이블이 생성된다")
             void createOrderTable() {
-                given(orderTableDao.save(any(OrderTable.class))).willAnswer(i -> {
-                    OrderTable saved = i.getArgument(0, OrderTable.class);
-                    saved.setId(1L);
-                    return saved;
-                });
-
                 OrderTable result = subject();
 
                 assertAll(
                         () -> assertThat(result.getId()).isNotNull(),
-                        () -> assertThat(result.getNumberOfGuests()).isEqualTo(3),
-                        () -> assertThat(result.isEmpty()).isFalse()
+                        () -> assertThat(result.getNumberOfGuests()).isEqualTo(request.getNumberOfGuests()),
+                        () -> assertThat(result.isEmpty()).isEqualTo(request.isEmpty())
                 );
             }
         }
@@ -86,13 +88,12 @@ class TableServiceTest {
 
             @BeforeEach
             void setUp() {
-                orderTables = Arrays.asList(
-                        createOrderTable(1L, false, null, 2),
-                        createOrderTable(2L, false, 2L, 2),
-                        createOrderTable(3L, true, 2L, 2),
-                        createOrderTable(4L, false, null, 2)
-                );
-                given(orderTableDao.findAll()).willReturn(orderTables);
+                TableGroup tablegroup = tableGroupDao.save(createTableGroup(null, LocalDateTime.now(), Collections.emptyList()));
+                orderTables = new ArrayList<>();
+                orderTables.add(orderTableDao.save(createOrderTable(null, false, null, 2)));
+                orderTables.add(orderTableDao.save(createOrderTable(null, false, tablegroup.getId(), 2)));
+                orderTables.add(orderTableDao.save(createOrderTable(null, true, tablegroup.getId(), 2)));
+                orderTables.add(orderTableDao.save(createOrderTable(null, false, null, 2)));
             }
 
             @Test
@@ -100,7 +101,7 @@ class TableServiceTest {
             void createOrderTables() {
                 List<OrderTable> result = subject();
 
-                assertThat(result).usingRecursiveComparison().isEqualTo(orderTables);
+                assertThat(result).usingFieldByFieldElementComparator().containsAll(orderTables);
             }
         }
     }
@@ -109,7 +110,7 @@ class TableServiceTest {
     @DisplayName("주문 테이블의 비어있음 여부 수정 메서드는")
     class ChangeEmptyOrderTable {
         private Long orderTableId;
-        private OrderTable request;
+        private OrderTableStatusRequest request;
 
         private OrderTable subject() {
             return tableService.changeEmpty(orderTableId, request);
@@ -122,23 +123,21 @@ class TableServiceTest {
 
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
-                orderTable = createOrderTable(orderTableId, false, null, 4);
+                orderTable = orderTableDao.save(createOrderTable(orderTableId, false, null, 4));
+                orderDao.save(createOrder(null, OrderStatus.COMPLETION, orderTable.getId(), LocalDateTime.now()));
+
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableEmptyRequest(true);
-                given(orderTableDao.findById(orderTableId)).willReturn(Optional.of(orderTable));
-                given(orderDao.existsByOrderTableIdAndOrderStatusIn(eq(orderTableId), anyList())).willReturn(false);
             }
 
             @Test
             @DisplayName("해당 주문 테이블의 빈 테이블 여부를 수정한다")
             void createOrderTables() {
-                given(orderTableDao.save(any(OrderTable.class)))
-                        .willAnswer(i -> i.getArgument(0, OrderTable.class));
                 OrderTable result = subject();
 
                 assertAll(
                         () -> assertThat(result).isEqualToIgnoringGivenFields(orderTable, "empty"),
-                        () -> assertThat(result.isEmpty()).isTrue()
+                        () -> assertThat(result.isEmpty()).isEqualTo(request.isEmpty())
                 );
             }
         }
@@ -148,9 +147,8 @@ class TableServiceTest {
         class NotExistOrderTable {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                orderTableId = 0L;
                 request = modifyOrderTableEmptyRequest(true);
-                given(orderTableDao.findById(orderTableId)).willReturn(Optional.empty());
             }
 
             @Test
@@ -165,10 +163,11 @@ class TableServiceTest {
         class AlreadyExistTableGroupId {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                TableGroup tablegroup = tableGroupDao.save(createTableGroup(null, LocalDateTime.now(), Collections.emptyList()));
+                OrderTable orderTable = orderTableDao.save(createOrderTable(orderTableId, false, tablegroup.getId(), 4));
+
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableEmptyRequest(true);
-                given(orderTableDao.findById(orderTableId))
-                        .willReturn(Optional.of(createOrderTable(orderTableId, false, 2L, 4)));
             }
 
             @Test
@@ -183,11 +182,11 @@ class TableServiceTest {
         class CookingOrMealStatus {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                OrderTable orderTable = orderTableDao.save(createOrderTable(orderTableId, false, null, 4));
+                orderDao.save(createOrder(null, OrderStatus.COOKING, orderTable.getId(), LocalDateTime.now()));
+
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableEmptyRequest(true);
-                given(orderTableDao.findById(orderTableId))
-                        .willReturn(Optional.of(createOrderTable(orderTableId, false, null, 4)));
-                given(orderDao.existsByOrderTableIdAndOrderStatusIn(eq(orderTableId), anyList())).willReturn(true);
             }
 
             @Test
@@ -202,7 +201,7 @@ class TableServiceTest {
     @DisplayName("주문 테이블 손님 수 수정 메서드는")
     class ChangeNumberOfGuestOrderTable {
         private Long orderTableId;
-        private OrderTable request;
+        private OrderTableNumOfGuestRequest request;
 
         private OrderTable subject() {
             return tableService.changeNumberOfGuests(orderTableId, request);
@@ -215,23 +214,20 @@ class TableServiceTest {
 
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
-                orderTable = createOrderTable(orderTableId, false, null, 4);
+                orderTable = orderTableDao.save(createOrderTable(orderTableId, false, null, 4));
+
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableNumOfGuestRequest(2);
-                given(orderTableDao.findById(orderTableId)).willReturn(Optional.of(orderTable));
             }
 
             @Test
             @DisplayName("해당 주문 테이블의 손님 수를 수정한다")
             void createOrderTables() {
-                given(orderTableDao.save(any(OrderTable.class)))
-                        .willAnswer(i -> i.getArgument(0, OrderTable.class));
-
                 OrderTable result = subject();
 
                 assertAll(
                         () -> assertThat(result).isEqualToIgnoringGivenFields(orderTable, "numberOfGuests"),
-                        () -> assertThat(result.getNumberOfGuests()).isEqualTo(2)
+                        () -> assertThat(result.getNumberOfGuests()).isEqualTo(request.getNumberOfGuests())
                 );
             }
         }
@@ -241,9 +237,8 @@ class TableServiceTest {
         class NotExistOrderTable {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                orderTableId = 0L;
                 request = modifyOrderTableNumOfGuestRequest(4);
-                given(orderTableDao.findById(orderTableId)).willReturn(Optional.empty());
             }
 
             @Test
@@ -259,7 +254,8 @@ class TableServiceTest {
         class NegativeNumberOfGuests {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                OrderTable orderTable = orderTableDao.save(createOrderTable(orderTableId, false, null, 4));
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableNumOfGuestRequest(-4);
             }
 
@@ -276,10 +272,9 @@ class TableServiceTest {
         class EmptyTable {
             @BeforeEach
             void setUp() {
-                orderTableId = 1L;
+                OrderTable orderTable = orderTableDao.save(createOrderTable(orderTableId, true, null, 4));
+                orderTableId = orderTable.getId();
                 request = modifyOrderTableNumOfGuestRequest(2);
-                given(orderTableDao.findById(orderTableId))
-                        .willReturn(Optional.of(createOrderTable(orderTableId, true, null, 4)));
             }
 
             @Test

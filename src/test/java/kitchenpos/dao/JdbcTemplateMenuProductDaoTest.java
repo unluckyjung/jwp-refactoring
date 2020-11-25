@@ -10,10 +10,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-import static kitchenpos.application.fixture.MenuFixture.createMenu;
-import static kitchenpos.application.fixture.MenuFixture.createMenuProduct;
-import static kitchenpos.application.fixture.MenuGroupFixture.createMenuGroup;
-import static kitchenpos.application.fixture.ProductFixture.createProduct;
+import static kitchenpos.fixture.MenuFixture.createMenu;
+import static kitchenpos.fixture.MenuFixture.createMenuProduct;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroup;
+import static kitchenpos.fixture.ProductFixture.createProduct;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
@@ -39,7 +39,7 @@ class JdbcTemplateMenuProductDaoTest {
     void setUp() {
         productId = productDao.save(createProduct(null, "강정치킨", BigDecimal.ONE)).getId();
         menuGroupId = menuGroupDao.save(createMenuGroup(null, "추천메뉴")).getId();
-        menuId = menuDao.save(createMenu(null, "후라이드+후라이드", BigDecimal.ONE, menuGroupId, null)).getId();
+        menuId = menuDao.save(createMenu(null, "후라이드+후라이드", BigDecimal.ONE, menuGroupId)).getId();
     }
 
     @Test
@@ -86,7 +86,7 @@ class JdbcTemplateMenuProductDaoTest {
     @Test
     @DisplayName("menuId로 엔티티를 조회하면 저장되어있는 엔티티가 조회된다")
     void findByMenuId() {
-        Long otherMenuId = menuDao.save(createMenu(null, "볼케이노+케이준감자", BigDecimal.ONE, menuGroupId, null)).getId();
+        Long otherMenuId = menuDao.save(createMenu(null, "볼케이노+케이준감자", BigDecimal.ONE, menuGroupId)).getId();
 
         menuProductDao.save(createMenuProduct(null, productId, 1, menuId));
         menuProductDao.save(createMenuProduct(null, productId, 2, menuId));

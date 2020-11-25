@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kitchenpos.application.ProductService;
 import kitchenpos.domain.Product;
+import kitchenpos.ui.dto.ProductCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,8 +21,8 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 
-import static kitchenpos.application.fixture.ProductFixture.createProduct;
-import static kitchenpos.application.fixture.ProductFixture.createProductRequest;
+import static kitchenpos.fixture.ProductFixture.createProduct;
+import static kitchenpos.fixture.ProductFixture.createProductRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -52,9 +53,9 @@ class ProductRestControllerTest {
     @Test
     @DisplayName("상품을 생성한다")
     void create() throws Exception {
-        Product request = createProductRequest("강정치킨", BigDecimal.valueOf(17000));
+        ProductCreateRequest request = createProductRequest("강정치킨", BigDecimal.valueOf(17000));
         byte[] content = objectMapper.writeValueAsBytes(request);
-        given(productService.create(any(Product.class)))
+        given(productService.create(any(ProductCreateRequest.class)))
                 .willReturn(createProduct(3L, "강정치킨", BigDecimal.valueOf(17000)));
 
         mockMvc.perform(post("/api/products")

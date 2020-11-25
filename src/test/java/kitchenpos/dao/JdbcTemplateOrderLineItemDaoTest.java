@@ -11,12 +11,12 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
 
-import static kitchenpos.application.fixture.MenuFixture.createMenu;
-import static kitchenpos.application.fixture.MenuGroupFixture.createMenuGroup;
-import static kitchenpos.application.fixture.OrderFixture.createOrder;
-import static kitchenpos.application.fixture.OrderLineItemFixture.createOrderLineItem;
-import static kitchenpos.application.fixture.OrderTableFixture.createOrderTable;
-import static kitchenpos.application.fixture.TableGroupFixture.createTableGroup;
+import static kitchenpos.fixture.MenuFixture.createMenu;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroup;
+import static kitchenpos.fixture.OrderFixture.createOrder;
+import static kitchenpos.fixture.OrderLineItemFixture.createOrderLineItem;
+import static kitchenpos.fixture.OrderTableFixture.createOrderTable;
+import static kitchenpos.fixture.TableGroupFixture.createTableGroup;
 import static kitchenpos.domain.OrderStatus.COOKING;
 import static kitchenpos.domain.OrderStatus.MEAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,13 +53,13 @@ class JdbcTemplateOrderLineItemDaoTest {
         Long menuGroupId = menuGroupDao.save(createMenuGroup(null, "추천메뉴")).getId();
 
         orderId = orderDao.save(createOrder(null, COOKING, orderTableId, LocalDateTime.now())).getId();
-        menuId = menuDao.save(createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId, null)).getId();
+        menuId = menuDao.save(createMenu(null, "후라이드", BigDecimal.valueOf(1000, 2), menuGroupId)).getId();
     }
 
     @DisplayName("주문 항목 엔티티를 저장하면 seq가 부여되며 저장된다")
     @Test
     void insert() {
-        OrderLineItem orderLineItem = createOrderLineItem(null, orderId, menuId, 3L);
+        OrderLineItem orderLineItem = createOrderLineItem(null, orderId, menuId, 3);
 
         OrderLineItem result = orderLineItemDao.save(orderLineItem);
 
@@ -72,7 +72,7 @@ class JdbcTemplateOrderLineItemDaoTest {
     @Test
     @DisplayName("존재하는 seq로 엔티티를 조회하면 저장되어있는 엔티티가 조회된다")
     void findExist() {
-        OrderLineItem orderLineItem = createOrderLineItem(null, orderId, menuId, 3L);
+        OrderLineItem orderLineItem = createOrderLineItem(null, orderId, menuId, 3);
         OrderLineItem persisted = orderLineItemDao.save(orderLineItem);
 
         OrderLineItem result = orderLineItemDao.findById(persisted.getSeq()).get();
@@ -89,9 +89,9 @@ class JdbcTemplateOrderLineItemDaoTest {
     @Test
     @DisplayName("모든 엔티티를 조회하면 저장되어 있는 엔티티들이 반환된다")
     void findAll() {
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 3L));
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 1L));
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 2L));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 3));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 1));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 2));
 
         assertThat(orderLineItemDao.findAll()).hasSize(3);
     }
@@ -100,11 +100,11 @@ class JdbcTemplateOrderLineItemDaoTest {
     @DisplayName("주문 id로 조회하면 저장되어 있는 엔티티들이 반환된다")
     void findAllByOrderId() {
         Long otherOrderId = orderDao.save(createOrder(null, MEAL, orderTableId, LocalDateTime.now())).getId();
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 3L));
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 1L));
-        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 2L));
-        orderLineItemDao.save(createOrderLineItem(null, otherOrderId, menuId, 2L));
-        orderLineItemDao.save(createOrderLineItem(null, otherOrderId, menuId, 2L));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 3));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 1));
+        orderLineItemDao.save(createOrderLineItem(null, orderId, menuId, 2));
+        orderLineItemDao.save(createOrderLineItem(null, otherOrderId, menuId, 2));
+        orderLineItemDao.save(createOrderLineItem(null, otherOrderId, menuId, 2));
 
         assertThat(orderLineItemDao.findAllByOrderId(orderId)).hasSize(3);
     }

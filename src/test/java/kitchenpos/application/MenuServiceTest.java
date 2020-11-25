@@ -6,52 +6,53 @@ import kitchenpos.dao.MenuProductDao;
 import kitchenpos.dao.ProductDao;
 import kitchenpos.domain.Menu;
 import kitchenpos.domain.MenuProduct;
+import kitchenpos.ui.dto.MenuCreateRequest;
+import kitchenpos.ui.dto.MenuProductCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.util.LinkedMultiValueMap;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
-import static kitchenpos.application.fixture.MenuFixture.*;
-import static kitchenpos.application.fixture.ProductFixture.createProduct;
+import static kitchenpos.fixture.MenuFixture.*;
+import static kitchenpos.fixture.MenuGroupFixture.createMenuGroup;
+import static kitchenpos.fixture.ProductFixture.createProduct;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.BDDMockito.given;
 
-@ExtendWith(MockitoExtension.class)
+@ServiceIntegrationTest
 @DisplayName("메뉴 서비스")
 class MenuServiceTest {
-    @InjectMocks
+    @Autowired
     private MenuService menuService;
 
-    @Mock
+    @Autowired
     private MenuDao menuDao;
 
-    @Mock
+    @Autowired
     private MenuGroupDao menuGroupDao;
 
-    @Mock
+    @Autowired
     private MenuProductDao menuProductDao;
 
-    @Mock
+    @Autowired
     private ProductDao productDao;
+
+    @Autowired
+    private ApplicationEventPublisher publisher;
 
     @Nested
     @DisplayName("생성 메서드는")
     class CreateMenu {
-        private Menu request;
+        private MenuCreateRequest request;
 
         private Menu subject() {
             return menuService.create(request);
@@ -62,88 +63,36 @@ class MenuServiceTest {
         class WithNameAndPriceAndGroupAndMenuProduct {
             @BeforeEach
             void setUp() {
-                List<MenuProduct> menuProducts = Arrays.asList(
-                        createMenuProductRequest(1L, 3),
-                        createMenuProductRequest(2L, 2)
+                Long menuGroupId = menuGroupDao.save(createMenuGroup(null, "추천메뉴")).getId();
+                Long productId = productDao.save(createProduct(null, "강정치킨", BigDecimal.valueOf(10000))).getId();
+                Long productId2 = productDao.save(createProduct(null, "불꽃치킨", BigDecimal.valueOf(10000))).getId();
+
+                List<MenuProductCreateRequest> menuProductRequests = Arrays.asList(
+                        createMenuProductRequest(productId, 3),
+                        createMenuProductRequest(productId2, 2)
                 );
                 request = createMenuRequest(
-                        "후라이드+후라이드",
+                        "강정치킨3+불꽃치킨2",
                         BigDecimal.valueOf(19000),
-                        4L,
-                        menuProducts
+                        menuGroupId,
+                        menuProductRequests
                 );
-
-                given(menuGroupDao.existsById(4L)).willReturn(true);
-                given(productDao.findById(anyLong())).willAnswer(i -> {
-                    Long id = i.getArgument(0, Long.class);
-                    return Optional.of(createProduct(id, "후라이드", BigDecimal.valueOf(10000)));
-                });
             }
 
             @Test
             @DisplayName("메뉴가 생성된다")
             void createMenus() {
-                given(menuDao.save(any(Menu.class))).willAnswer(i -> {
-                    Menu saved = i.getArgument(0, Menu.class);
-                    saved.setId(1L);
-                    return saved;
-                });
-                given(menuProductDao.save(any(MenuProduct.class))).willAnswer(i -> {
-                    MenuProduct saved = i.getArgument(0, MenuProduct.class);
-                    saved.setSeq(1L);
-                    return saved;
-                });
                 Menu result = subject();
 
-                assertThat(result).usingRecursiveComparison().ignoringFields("id", "seq").isEqualTo(request);
-            }
-        }
-
-        @Nested
-        @DisplayName("메뉴 가격이 없는 경우")
-        class WithPriceNotExist {
-            @BeforeEach
-            void setUp() {
-                List<MenuProduct> menuProducts = Arrays.asList(
-                        createMenuProductRequest(1L, 3),
-                        createMenuProductRequest(2L, 2)
+                assertAll(
+                        () -> assertThat(result).usingRecursiveComparison()
+                                .ignoringFields("id", "menuProducts.seq", "menuProducts.menuId")
+                                .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                                .isEqualTo(request.toEntity()),
+                        () -> assertThat(result.getId()).isNotNull(),
+                        () -> assertThat(result.getMenuProducts()).extracting(MenuProduct::getSeq).doesNotContainNull(),
+                        () -> assertThat(result.getMenuProducts()).extracting(MenuProduct::getMenuId).doesNotContainNull()
                 );
-                request = createMenuRequest(
-                        "후라이드+후라이드",
-                        null,
-                        4L,
-                        menuProducts
-                );
-            }
-
-            @Test
-            @DisplayName("예외가 발생한다")
-            void throwException() {
-                assertThatThrownBy(CreateMenu.this::subject).isInstanceOf(IllegalArgumentException.class);
-            }
-        }
-
-        @Nested
-        @DisplayName("메뉴 가격이 음수인 경우")
-        class WithNegativePrice {
-            @BeforeEach
-            void setUp() {
-                List<MenuProduct> menuProducts = Arrays.asList(
-                        createMenuProductRequest(1L, 3),
-                        createMenuProductRequest(2L, 2)
-                );
-                request = createMenuRequest(
-                        "후라이드+후라이드",
-                        BigDecimal.valueOf(-1),
-                        4L,
-                        menuProducts
-                );
-            }
-
-            @Test
-            @DisplayName("예외가 발생한다")
-            void throwException() {
-                assertThatThrownBy(CreateMenu.this::subject).isInstanceOf(IllegalArgumentException.class);
             }
         }
 
@@ -152,17 +101,19 @@ class MenuServiceTest {
         class WhenNotExistMenuGroup {
             @BeforeEach
             void setUp() {
-                List<MenuProduct> menuProducts = Arrays.asList(
-                        createMenuProductRequest(1L, 3),
-                        createMenuProductRequest(2L, 2)
+                Long productId = productDao.save(createProduct(null, "강정치킨", BigDecimal.valueOf(10000))).getId();
+                Long productId2 = productDao.save(createProduct(null, "불꽃치킨", BigDecimal.valueOf(10000))).getId();
+
+                List<MenuProductCreateRequest> menuProducts = Arrays.asList(
+                        createMenuProductRequest(productId, 3),
+                        createMenuProductRequest(productId2, 2)
                 );
                 request = createMenuRequest(
                         "후라이드+후라이드",
                         BigDecimal.valueOf(19000),
-                        2L,
+                        0L,
                         menuProducts
                 );
-                given(menuGroupDao.existsById(2L)).willReturn(false);
             }
 
             @Test
@@ -177,22 +128,19 @@ class MenuServiceTest {
         class WithInvalidPrice {
             @BeforeEach
             void setUp() {
-                List<MenuProduct> menuProducts = Arrays.asList(
-                        createMenuProductRequest(1L, 2),
-                        createMenuProductRequest(2L, 1)
+                Long menuGroupId = menuGroupDao.save(createMenuGroup(null, "추천메뉴")).getId();
+                Long productId = productDao.save(createProduct(null, "강정치킨", BigDecimal.valueOf(10000))).getId();
+                Long productId2 = productDao.save(createProduct(null, "불꽃치킨", BigDecimal.valueOf(10000))).getId();
+                List<MenuProductCreateRequest> menuProductRequests = Arrays.asList(
+                        createMenuProductRequest(productId, 3),
+                        createMenuProductRequest(productId2, 2)
                 );
                 request = createMenuRequest(
                         "후라이드+후라이드",
-                        BigDecimal.valueOf(40000),
-                        2L,
-                        menuProducts
+                        BigDecimal.valueOf(440000),
+                        menuGroupId,
+                        menuProductRequests
                 );
-
-                given(menuGroupDao.existsById(2L)).willReturn(true);
-                given(productDao.findById(anyLong())).willAnswer(i -> {
-                    Long id = i.getArgument(0, Long.class);
-                    return Optional.of(createProduct(id, "후라이드", BigDecimal.valueOf(8000)));
-                });
             }
 
             @Test
@@ -214,29 +162,34 @@ class MenuServiceTest {
         @DisplayName("메뉴와 메뉴 상품들이 저장되어 있다면")
         class WithMenuAndMenuProduct {
             private List<Menu> menus;
-            private LinkedMultiValueMap<Long, MenuProduct> menuProducts;
 
             @BeforeEach
             void setUp() {
-                menuProducts = new LinkedMultiValueMap<Long, MenuProduct>() {{
-                    add(1L, createMenuProduct(1L, 2L, 2, 1L));
-                    add(1L, createMenuProduct(2L, 3L, 2, 1L));
-                    add(1L, createMenuProduct(3L, 4L, 1, 1L));
-                    add(2L, createMenuProduct(4L, 2L, 1, 2L));
-                    add(3L, createMenuProduct(5L, 2L, 1, 3L));
-                    add(3L, createMenuProduct(6L, 4L, 3, 3L));
+                Long menuGroupId = menuGroupDao.save(createMenuGroup(null, "추천메뉴")).getId();
+                Long productId1 = productDao.save(createProduct(null, "강정치킨", BigDecimal.valueOf(10000))).getId();
+                Long productId2 = productDao.save(createProduct(null, "불꽃치킨", BigDecimal.valueOf(10000))).getId();
+                Long productId3 = productDao.save(createProduct(null, "물꽃치킨", BigDecimal.valueOf(10000))).getId();
+
+                menus = new ArrayList<>();
+                menus.add(menuDao.save(createMenu(null, "후라이드+후라이드", BigDecimal.valueOf(1000L), menuGroupId)));
+                menus.add(menuDao.save(createMenu(null, "후라이드+양념치킨", BigDecimal.valueOf(1000L), menuGroupId)));
+                menus.add(menuDao.save(createMenu(null, "양념치킨+양념치킨", BigDecimal.valueOf(1000L), menuGroupId)));
+
+                LinkedMultiValueMap<Menu, MenuProduct> menuProducts = new LinkedMultiValueMap<Menu, MenuProduct>() {{
+                    add(menus.get(0), createMenuProduct(null, productId1, 2, menus.get(0).getId()));
+                    add(menus.get(0), createMenuProduct(null, productId2, 2, menus.get(0).getId()));
+                    add(menus.get(0), createMenuProduct(null, productId3, 1, menus.get(0).getId()));
+                    add(menus.get(1), createMenuProduct(null, productId1, 1, menus.get(1).getId()));
+                    add(menus.get(2), createMenuProduct(null, productId1, 1, menus.get(2).getId()));
+                    add(menus.get(2), createMenuProduct(null, productId3, 3, menus.get(2).getId()));
                 }};
 
-                menus = Arrays.asList(
-                        createMenu(1L, "후라이드+후라이드", BigDecimal.valueOf(1000L), 3L, menuProducts.get(1L)),
-                        createMenu(2L, "후라이드+후라이드", BigDecimal.valueOf(1000L), 3L, menuProducts.get(2L)),
-                        createMenu(3L, "후라이드+후라이드", BigDecimal.valueOf(1000L), 3L, menuProducts.get(3L))
-                );
-                given(menuDao.findAll()).willReturn(menus);
-                given(menuProductDao.findAllByMenuId(anyLong())).willAnswer(i -> {
-                    Long id = i.getArgument(0, Long.class);
-                    return menuProducts.get(id);
-                });
+                for (Menu menu : menuProducts.keySet()) {
+                    for (MenuProduct menuProduct : menuProducts.get(menu)) {
+                        MenuProduct persisted = menuProductDao.save(menuProduct);
+                        menu.add(persisted);
+                    }
+                }
             }
 
             @Test
@@ -244,9 +197,10 @@ class MenuServiceTest {
             void findMenus() {
                 List<Menu> result = subject();
                 assertAll(
-                        () -> assertThat(result).usingElementComparatorIgnoringFields("menuProducts").isEqualTo(menus),
-                        () -> assertThat(result).extracting(Menu::getMenuProducts)
-                                .usingFieldByFieldElementComparator().isEqualTo(menuProducts.values())
+                        () -> assertThat(result)
+                                .usingRecursiveFieldByFieldElementComparator()
+                                .usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                                .containsAll(menus)
                 );
             }
         }

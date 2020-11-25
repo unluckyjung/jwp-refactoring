@@ -3,6 +3,7 @@ package kitchenpos.ui;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kitchenpos.application.TableGroupService;
 import kitchenpos.domain.TableGroup;
+import kitchenpos.ui.dto.TableGroupCreateRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,8 +19,8 @@ import org.springframework.web.filter.CharacterEncodingFilter;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static kitchenpos.application.fixture.TableGroupFixture.createTableGroup;
-import static kitchenpos.application.fixture.TableGroupFixture.createTableGroupRequest;
+import static kitchenpos.fixture.TableGroupFixture.createTableGroup;
+import static kitchenpos.fixture.TableGroupFixture.createTableGroupRequest;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -50,9 +51,9 @@ class TableGroupRestControllerTest {
     @Test
     @DisplayName("테이블 그룹을 생성한다")
     void create() throws Exception {
-        TableGroup request = createTableGroupRequest(Arrays.asList(1L, 2L));
+        TableGroupCreateRequest request = createTableGroupRequest(Arrays.asList(1L, 2L));
         byte[] content = objectMapper.writeValueAsBytes(request);
-        given(tableGroupService.create(any(TableGroup.class)))
+        given(tableGroupService.create(any(TableGroupCreateRequest.class)))
                 .willReturn(createTableGroup(2L, LocalDateTime.now(), Arrays.asList(1L, 2L)));
 
         mockMvc.perform(post("/api/table-groups")
