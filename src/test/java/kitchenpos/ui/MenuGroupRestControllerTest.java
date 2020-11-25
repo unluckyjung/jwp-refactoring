@@ -1,13 +1,15 @@
 package kitchenpos.ui;
 
-import static kitchenpos.MenuGroupFixture.*;
+import static kitchenpos.util.ObjectUtil.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,6 +26,8 @@ import org.springframework.web.filter.CharacterEncodingFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kitchenpos.application.MenuGroupService;
 import kitchenpos.domain.MenuGroup;
+import kitchenpos.ui.dto.MenuGroupCreateRequest;
+import kitchenpos.ui.dto.MenuGroupResponse;
 
 @WebMvcTest(MenuGroupRestController.class)
 class MenuGroupRestControllerTest {
@@ -46,27 +50,38 @@ class MenuGroupRestControllerTest {
     @DisplayName("정상적인 메뉴그룹 생성 요청에 created 상태로 응답하는지 확인한다.")
     @Test
     void createTest() throws Exception {
-        final MenuGroup savedMenuGroup = createMenuGroupWithId(1L);
+        final String name = "메뉴";
+        final MenuGroup savedMenuGroup = createMenuGroup(1L, name);
+        final MenuGroupCreateRequest menuGroupWithoutId = new MenuGroupCreateRequest(name);
+
         given(menuGroupService.create(any(MenuGroup.class))).willReturn(savedMenuGroup);
 
         mockMvc.perform(post("/api/menu-groups")
             .contentType(MediaType.APPLICATION_JSON)
-            .content(objectMapper.writeValueAsBytes(createMenuGroupWithoutId()))
+            .content(objectMapper.writeValueAsBytes(menuGroupWithoutId))
         )
             .andExpect(status().isCreated())
-            .andExpect(content().bytes(objectMapper.writeValueAsBytes(savedMenuGroup)))
+            .andExpect(content().bytes(objectMapper.writeValueAsBytes(MenuGroupResponse.from(savedMenuGroup))))
             .andExpect(header().exists("Location"));
     }
 
     @DisplayName("정상적인 메뉴 그룹 리스트 요청에 ok상태로 응답하는지 확인한다.")
     @Test
     void listTest() throws Exception {
-        final List<MenuGroup> menuGroups = createMenuGroups();
+        final MenuGroup first = createMenuGroup(1L, "두마리메뉴");
+        final MenuGroup second = createMenuGroup(2L, "한마리메뉴");
+        final MenuGroup third = createMenuGroup(3L, "순살파닭두마리메뉴");
+        final MenuGroup fourth = createMenuGroup(4L, "신메뉴");
+        final MenuGroup fifth = createMenuGroup(5L, "메뉴");
+        final List<MenuGroup> menuGroups = Arrays.asList(first, second, third, fourth, fifth);
+        final List<MenuGroupResponse> menuGroupResponses = menuGroups.stream()
+            .map(MenuGroupResponse::from)
+            .collect(Collectors.toList());
+
         given(menuGroupService.list()).willReturn(menuGroups);
 
         mockMvc.perform(get("/api/menu-groups"))
             .andExpect(status().isOk())
-            .andExpect(content().bytes(objectMapper.writeValueAsBytes(menuGroups)));
+            .andExpect(content().bytes(objectMapper.writeValueAsBytes(menuGroupResponses)));
     }
 }
-
