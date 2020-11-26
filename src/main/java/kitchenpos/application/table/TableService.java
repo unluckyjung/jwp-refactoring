@@ -1,7 +1,7 @@
 package kitchenpos.application.table;
 
 import kitchenpos.domain.order.OrderStatus;
-import kitchenpos.domain.order.OrderTable;
+import kitchenpos.domain.table.OrderTable;
 import kitchenpos.dto.table.response.OrderTableResponse;
 import kitchenpos.repository.order.OrderRepository;
 import kitchenpos.repository.order.OrderTableRepository;
@@ -49,8 +49,7 @@ public class TableService {
     public OrderTable changeNumberOfGuests(Long orderTableId, OrderTable expectedTable) {
         int replacedNumberOfGuests = expectedTable.getNumberOfGuests();
         OrderTable savedOrderTable = findOrderTableById(orderTableId);
-        OrderTable changedTable = savedOrderTable.changeNumberOfGuests(replacedNumberOfGuests);
-        return orderTableRepository.save(changedTable);
+        return savedOrderTable.changeNumberOfGuests(replacedNumberOfGuests);
     }
 
     private OrderTable findOrderTableById(Long orderTableId) {
